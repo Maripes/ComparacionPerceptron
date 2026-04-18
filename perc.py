@@ -314,7 +314,7 @@ if archivo_frontal and archivo_final:
                 elif abs(val) > 0.5:
                     return 'background-color: #FFFD00; color: #000000; font-weight: 600;'
             return 'color: #FFFFFF;'
- 
+        
         df_correlacion_styled = (
             df_correlacion.style
             .apply(lambda col: col.map(colorear_correlacion) if col.name == "Correlation" else [""]*len(col), axis=0)
@@ -335,7 +335,8 @@ if archivo_frontal and archivo_final:
                                             ('border', '1px solid #444')]}
             ])
         )
-                st.subheader("📈 Correlación")
+
+        st.subheader("📈 Correlación")
         st.dataframe(df_correlacion_styled, use_container_width=True)
  
         import openpyxl
