@@ -317,8 +317,8 @@ if archivo_frontal and archivo_final:
  
         df_correlacion_styled = (
             df_correlacion.style
-            .applymap(colorear_correlacion, subset=["Correlation"])
-            .applymap(colorear_offset, subset=["Calculated-Offset"])
+            .map(colorear_correlacion, subset=["Correlation"])
+            .map(colorear_offset, subset=["Calculated-Offset"])
             .set_table_styles([
                 {'selector': 'th', 'props': [('background-color', '#2b2b2b'),
                                             ('color', '#FFFFFF'),
