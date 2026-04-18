@@ -317,8 +317,8 @@ if archivo_frontal and archivo_final:
  
         df_correlacion_styled = (
             df_correlacion.style
-            .applymap(colorear_correlacion, subset=["Correlation"])
-            .applymap(colorear_offset, subset=["Calculated-Offset"])
+            .apply(lambda col: col.map(colorear_correlacion) if col.name == "Correlation" else [""]*len(col), axis=0)
+            .apply(lambda col: col.map(colorear_offset) if col.name == "Calculated-Offset" else [""]*len(col), axis=0)
             .set_table_styles([
                 {'selector': 'th', 'props': [('background-color', '#2b2b2b'),
                                             ('color', '#FFFFFF'),
@@ -331,12 +331,11 @@ if archivo_frontal and archivo_final:
                                             ('padding', '8px')]},
                 {'selector': 'tbody tr:hover', 'props': [('background-color', '#333333')]},
                 {'selector': 'table', 'props': [('border-radius', '10px'),
-                                                ('overflow', 'hidden'),
-                                                ('border', '1px solid #444')]}
+                                            ('overflow', 'hidden'),
+                                            ('border', '1px solid #444')]}
             ])
         )
- 
-        st.subheader("📈 Correlación")
+                st.subheader("📈 Correlación")
         st.dataframe(df_correlacion_styled, use_container_width=True)
  
         import openpyxl
