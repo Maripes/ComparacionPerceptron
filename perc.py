@@ -1,9 +1,12 @@
 import streamlit as st
+import xml.etree.ElementTree as ET
 import pandas as pd
 import io
 from collections import OrderedDict
 import re
 import numpy as np
+import openpyxl
+from openpyxl.styles import PatternFill, Font
  
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Convertir TXT Perceptron a Excel", layout="wide")
@@ -339,8 +342,6 @@ if archivo_frontal and archivo_final:
         st.subheader("📈 Correlación")
         st.dataframe(df_correlacion_styled, use_container_width=True)
  
-        import openpyxl
-        from openpyxl.styles import PatternFill, Font
  
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
@@ -388,46 +389,79 @@ if archivo_frontal and archivo_final:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
  
-        # ---------------- XML ----------------
-        def generar_xml_comparacion(df, station_name, model_name):
-            import xml.etree.ElementTree as ET
-           
+        # ---------------- Preparar datos ----------------
+        df_correlacion["Checkpoint"] = df_correlacion["Front-Axis"].str.extract(r"(^\d+[LR])")
+        df_correlacion["Axis"] = df_correlacion["Front-Axis"].str.extract(r"\[([XYZ])\]")
+
+        tabla_offsets = (
+            df_correlacion[["Checkpoint", "Axis", "Calculated-Offset"]]
+            .rename(columns={"Calculated-Offset": "OFFSET"})
+        )
+
+        tabla_offsets["OFFSET"] = tabla_offsets["OFFSET"].round(3)
+
+
+        # ---------------- Tabla editable ----------------
+        st.subheader("Editar OFFSET")
+
+        tabla_editada = st.data_editor(
+            tabla_offsets,
+            column_config={
+                "Checkpoint": st.column_config.TextColumn(disabled=True),
+                "Axis": st.column_config.TextColumn(disabled=True),
+                "OFFSET": st.column_config.NumberColumn(
+                    format="%.3f",
+                    step=0.001
+                )
+            },
+            hide_index=True,
+            use_container_width=True
+        )
+
+
+        # ---------------- Generar XML ----------------
+        def generar_xml(tabla, station_name, model_name):
+
             gauge = ET.Element("GAUGE")
             station = ET.SubElement(gauge, "STATION")
             ET.SubElement(station, "NAME").text = station_name
+
             model = ET.SubElement(station, "MODEL")
             ET.SubElement(model, "NAME").text = model_name
-           
-            df["Checkpoint"] = df["Front-Axis"].str.extract(r"(^\d+[LR])")
-            df["Axis"] = df["Front-Axis"].str.extract(r"\[([XYZ])\]")
-           
-            for checkpoint_name, group in df.groupby("Checkpoint"):
+
+            for checkpoint_name, group in tabla.groupby("Checkpoint"):
+
                 checkpoint = ET.SubElement(model, "CHECKPOINT")
                 ET.SubElement(checkpoint, "NAME").text = checkpoint_name
-               
-                for axis in ["X", "Y", "Z"]:
+
+                for _, row in group.iterrows():
+
                     axis_node = ET.SubElement(checkpoint, "AXIS")
-                    ET.SubElement(axis_node, "NAME").text = axis
-                    val = group.loc[group["Axis"]==axis, "Calculated-Offset"]
-                    ET.SubElement(axis_node, "OFFSET").text = str(round(val.values[0],3)) if not val.empty else "0"
-               
+                    ET.SubElement(axis_node, "NAME").text = row["Axis"]
+                    ET.SubElement(axis_node, "OFFSET").text = str(row["OFFSET"])
+
                 axis_node = ET.SubElement(checkpoint, "AXIS")
                 ET.SubElement(axis_node, "NAME").text = "Diameter"
                 ET.SubElement(axis_node, "OFFSET").text = "0"
-           
-            xml_str = ET.tostring(gauge, encoding="utf-8", method="xml")
-            return xml_str
- 
-        #xml_data = generar_xml_comparacion(df_correlacion)
-        xml_data = generar_xml_comparacion(
-            df_correlacion,
-            station_name=station_name,
-            model_name=model_name
+
+            return ET.tostring(gauge, encoding="utf-8").decode("utf-8")
+
+
+        xml_data = generar_xml(
+            tabla_editada,
+            station_name,
+            model_name
         )
- 
+
+
+        # Vista previa
+        st.code(xml_data, language="xml")
+
+
+        # Descargar
         st.download_button(
-            label="📥 Descargar comparación en XML",
-            data=xml_data,
-            file_name="Comparacion_Percepton.xml",
-            mime="application/xml"
+            "📥 Descargar XML Editado",
+            xml_data,
+            "Comparacion_Perceptron_Editado.xml",
+            "application/xml"
         )
